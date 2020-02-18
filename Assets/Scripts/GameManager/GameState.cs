@@ -5,13 +5,6 @@ using System.Collections.Generic;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
 
-#if UNITY_ADS
-using UnityEngine.Advertisements;
-#endif
-#if UNITY_ANALYTICS
-using UnityEngine.Analytics;
-#endif
-
 /// <summary>
 /// Pushed on top of the GameManager during gameplay. Takes care of initializing all the UI and start the TrackManager
 /// Also will take care of cleaning when leaving that state.
@@ -41,28 +34,10 @@ public class GameState : AState
 
     public Image inventoryIcon;
 
-    public GameObject gameOverPopup;
-    public Button premiumForLifeButton;
-    public GameObject adsForLifeButton;
-    public Text premiumCurrencyOwned;
-
     [Header("Prefabs")]
     public GameObject PowerupIconPrefab;
 
-    [Header("Tutorial")]
-    public Text tutorialValidatedObstacles;
-    public GameObject sideSlideTuto;
-    public GameObject upSlideTuto;
-    public GameObject downSlideTuto;
-    public GameObject finishTuto;
-
     public Modifier currentModifier = new Modifier();
-
-    public string adsPlacementId = "rewardedVideo";
-#if UNITY_ANALYTICS
-    public AdvertisingNetwork adsNetwork = AdvertisingNetwork.UnityAds;
-#endif
-    public bool adsRewarded = true;
 
     protected bool m_Finished;
     protected float m_TimeSinceStart;
@@ -72,7 +47,6 @@ public class GameState : AState
     protected RectTransform m_CountdownRectTransform;
     protected bool m_WasMoving;
 
-    protected bool m_AdsInitialised = false;
     protected bool m_GameoverSelectionDone = false;
 
     protected int k_MaxLives = 3;
@@ -101,7 +75,6 @@ public class GameState : AState
             CoroutineHandler.StartStaticCoroutine(MusicPlayer.instance.RestartAllStems());
         }
 
-        m_AdsInitialised = false;
         m_GameoverSelectionDone = false;
 
         StartGame();
@@ -119,14 +92,7 @@ public class GameState : AState
         canvas.gameObject.SetActive(true);
         pauseMenu.gameObject.SetActive(false);
         wholeUI.gameObject.SetActive(true);
-        pauseButton.gameObject.SetActive(!trackManager.isTutorial);
-        gameOverPopup.SetActive(false);
-
-        sideSlideTuto.SetActive(false);
-        upSlideTuto.SetActive(false);
-        downSlideTuto.SetActive(false);
-        finishTuto.SetActive(false);
-        tutorialValidatedObstacles.gameObject.SetActive(false);
+        pauseButton.gameObject.SetActive(true);
 
         if (!trackManager.isRerun)
         {
@@ -135,39 +101,6 @@ public class GameState : AState
         }
 
         currentModifier.OnRunStart(this);
-
-        m_IsTutorial = !PlayerData.instance.tutorialDone;
-        trackManager.isTutorial = m_IsTutorial;
-
-        if (m_IsTutorial)
-        {
-            tutorialValidatedObstacles.gameObject.SetActive(true);
-            tutorialValidatedObstacles.text = $"0/{k_ObstacleToClear}";
-
-            m_DisplayTutorial = true;
-            trackManager.newSegmentCreated = segment =>
-            {
-                if (trackManager.currentZone != 0 && !m_CountObstacles && m_NextValidSegment == null)
-                {
-                    m_NextValidSegment = segment;
-                }
-            };
-
-            trackManager.currentSegementChanged = segment =>
-            {
-                m_CurrentSegmentObstacleIndex = 0;
-
-                if (!m_CountObstacles && trackManager.currentSegment == m_NextValidSegment)
-                {
-                    trackManager.characterController.currentTutorialLevel += 1;
-                    m_CountObstacles = true;
-                    m_NextValidSegment = null;
-                    m_DisplayTutorial = true;
-
-                    tutorialValidatedObstacles.text = $"{m_TutorialClearedObstacle}/{k_ObstacleToClear}";
-                }
-            };
-        }
 
         m_Finished = false;
         m_PowerupIcons.Clear();
@@ -184,26 +117,6 @@ public class GameState : AState
     {
         if (m_Finished)
         {
-            //if we are finished, we check if advertisement is ready, allow to disable the button until it is ready
-#if UNITY_ADS
-            if (!trackManager.isTutorial && !m_AdsInitialised && Advertisement.IsReady(adsPlacementId))
-            {
-                adsForLifeButton.SetActive(true);
-                m_AdsInitialised = true;
-#if UNITY_ANALYTICS
-                AnalyticsEvent.AdOffer(adsRewarded, adsNetwork, adsPlacementId, new Dictionary<string, object>
-            {
-                { "level_index", PlayerData.instance.rank },
-                { "distance", TrackManager.instance == null ? 0 : TrackManager.instance.worldDistance },
-            });
-#endif
-            }
-            else if(trackManager.isTutorial || !m_AdsInitialised)
-                adsForLifeButton.SetActive(false);
-#else
-            adsForLifeButton.SetActive(false); //Ads is disabled
-#endif
-
             return;
         }
 
@@ -269,9 +182,6 @@ public class GameState : AState
                 chrCtrl.consumables.Remove(toRemove[i]);
                 m_PowerupIcons.Remove(toRemoveIcon[i]);
             }
-
-            if (m_IsTutorial)
-                TutorialCheckObstacleClear();
 
             UpdateUI();
 
@@ -385,10 +295,7 @@ public class GameState : AState
         yield return new WaitForSeconds(2.0f);
         if (currentModifier.OnRunEnd(this))
         {
-            if (trackManager.isRerun)
-                manager.SwitchState("GameOver");
-            else
-                OpenGameOverPopup();
+            manager.SwitchState("GameOver");
         }
 	}
 
@@ -405,198 +312,9 @@ public class GameState : AState
         m_PowerupIcons.Clear();
     }
 
-    public void OpenGameOverPopup()
-    {
-        premiumForLifeButton.interactable = PlayerData.instance.premium >= 3;
-
-        premiumCurrencyOwned.text = PlayerData.instance.premium.ToString();
-
-        ClearPowerup();
-
-        gameOverPopup.SetActive(true);
-    }
-
     public void GameOver()
     {
         manager.SwitchState("GameOver");
     }
 
-    public void PremiumForLife()
-    {
-        //This check avoid a bug where the video AND premium button are released on the same frame.
-        //It lead to the ads playing and then crashing the game as it try to start the second wind again.
-        //Whichever of those function run first will take precedence
-        if (m_GameoverSelectionDone)
-            return;
-
-        m_GameoverSelectionDone = true;
-
-        PlayerData.instance.premium -= 3;
-        //since premium are directly added to the PlayerData premium count, we also need to remove them from the current run premium count
-        // (as if you had 0, grabbed 3 during that run, you can directly buy a new chance). But for the case where you add one in the playerdata
-        // and grabbed 2 during that run, we don't want to remove 3, otherwise will have -1 premium for that run!
-        trackManager.characterController.premium -= Mathf.Min(trackManager.characterController.premium, 3);
-
-        SecondWind();
-    }
-
-    public void SecondWind()
-    {
-        trackManager.characterController.currentLife = 1;
-        trackManager.isRerun = true;
-        StartGame();
-    }
-
-    public void ShowRewardedAd()
-    {
-        if (m_GameoverSelectionDone)
-            return;
-
-        m_GameoverSelectionDone = true;
-
-#if UNITY_ADS
-        if (Advertisement.IsReady(adsPlacementId))
-        {
-#if UNITY_ANALYTICS
-            AnalyticsEvent.AdStart(adsRewarded, adsNetwork, adsPlacementId, new Dictionary<string, object>
-            {
-                { "level_index", PlayerData.instance.rank },
-                { "distance", TrackManager.instance == null ? 0 : TrackManager.instance.worldDistance },
-            });
-#endif
-            var options = new ShowOptions { resultCallback = HandleShowResult };
-            Advertisement.Show(adsPlacementId, options);
-        }
-        else
-        {
-#if UNITY_ANALYTICS
-            AnalyticsEvent.AdSkip(adsRewarded, adsNetwork, adsPlacementId, new Dictionary<string, object> {
-                { "error", Advertisement.GetPlacementState(adsPlacementId).ToString() }
-            });
-#endif
-        }
-#else
-		GameOver();
-#endif
-    }
-
-    //=== AD
-#if UNITY_ADS
-
-    private void HandleShowResult(ShowResult result)
-    {
-        switch (result)
-        {
-            case ShowResult.Finished:
-#if UNITY_ANALYTICS
-                AnalyticsEvent.AdComplete(adsRewarded, adsNetwork, adsPlacementId);
-#endif
-                SecondWind();
-                break;
-            case ShowResult.Skipped:
-                Debug.Log("The ad was skipped before reaching the end.");
-#if UNITY_ANALYTICS
-                AnalyticsEvent.AdSkip(adsRewarded, adsNetwork, adsPlacementId);
-#endif
-                break;
-            case ShowResult.Failed:
-                Debug.LogError("The ad failed to be shown.");
-#if UNITY_ANALYTICS
-                AnalyticsEvent.AdSkip(adsRewarded, adsNetwork, adsPlacementId, new Dictionary<string, object> {
-                    { "error", "failed" }
-                });
-#endif
-                break;
-        }
-    }
-#endif
-
-
-    void TutorialCheckObstacleClear()
-    {
-        if (trackManager.segments.Count == 0)
-            return;
-
-        if (AudioListener.pause && !trackManager.characterController.tutorialWaitingForValidation)
-        {
-            m_DisplayTutorial = false;
-            DisplayTutorial(false);
-        }
-
-        float ratio = trackManager.currentSegmentDistance / trackManager.currentSegment.worldLength;
-        float nextObstaclePosition = m_CurrentSegmentObstacleIndex < trackManager.currentSegment.obstaclePositions.Length ? trackManager.currentSegment.obstaclePositions[m_CurrentSegmentObstacleIndex] : float.MaxValue;
-
-        if (m_CountObstacles && ratio > nextObstaclePosition + 0.05f)
-        {
-            m_CurrentSegmentObstacleIndex += 1;
-
-            if (!trackManager.characterController.characterCollider.tutorialHitObstacle)
-            {
-                m_TutorialClearedObstacle += 1;
-                tutorialValidatedObstacles.text = $"{m_TutorialClearedObstacle}/{k_ObstacleToClear}";
-            }
-
-            trackManager.characterController.characterCollider.tutorialHitObstacle = false;
-
-            if (m_TutorialClearedObstacle == k_ObstacleToClear)
-            {
-                m_TutorialClearedObstacle = 0;
-                m_CountObstacles = false;
-                m_NextValidSegment = null;
-                trackManager.ChangeZone();
-
-                tutorialValidatedObstacles.text = "Passed!";
-
-                if (trackManager.currentZone == 0)
-                {//we looped, mean we finished the tutorial.
-                    trackManager.characterController.currentTutorialLevel = 3;
-                    DisplayTutorial(true);
-                }
-            }
-        }
-        else if (m_DisplayTutorial && ratio > nextObstaclePosition - 0.1f)
-            DisplayTutorial(true);
-    }
-
-    void DisplayTutorial(bool value)
-    {
-        if(value)
-            Pause(false);
-        else
-        {
-            Resume();
-        }
-
-        switch (trackManager.characterController.currentTutorialLevel)
-        {
-            case 0:
-                sideSlideTuto.SetActive(value);
-                trackManager.characterController.tutorialWaitingForValidation = value;
-                break;
-            case 1:
-                upSlideTuto.SetActive(value);
-                trackManager.characterController.tutorialWaitingForValidation = value;
-                break;
-            case 2:
-                downSlideTuto.SetActive(value);
-                trackManager.characterController.tutorialWaitingForValidation = value;
-                break;
-            case 3:
-                finishTuto.SetActive(value);
-                trackManager.characterController.StopSliding();
-                trackManager.characterController.tutorialWaitingForValidation = value;
-                break;
-            default:
-                break;
-        }
-    }
-
-
-    public void FinishTutorial()
-    {
-        PlayerData.instance.tutorialDone = true;
-        PlayerData.instance.Save();
-
-        QuitToLoadout();
-    }
 }

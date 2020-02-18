@@ -80,7 +80,6 @@ public class TrackManager : MonoBehaviour
     public bool isMoving { get { return m_IsMoving; } }
     public bool isRerun { get { return m_Rerun; } set { m_Rerun = value; } }
 
-    public bool isTutorial { get { return m_IsTutorial; } set { m_IsTutorial = value; } }
     public bool isLoaded { get; set; }
     //used by the obstacle spawning code in the tutorial, as it need to spawn the 1st obstacle in the middle lane
     public bool firstObstacle { get; set; }
@@ -114,8 +113,6 @@ public class TrackManager : MonoBehaviour
     protected float m_ScoreAccum;
     protected bool m_Rerun;     // This lets us know if we are entering a game over (ads) state or starting a new game (see GameState)
 
-    protected bool m_IsTutorial; //Tutorial is a special run that don't chance section until the tutorial step is "validated" by the TutorialState.
-    
     Vector3 m_CameraOriginalPos = Vector3.zero;
     
     const float k_FloatingOriginThreshold = 10000f;
@@ -203,8 +200,6 @@ public class TrackManager : MonoBehaviour
             }
             Character player = op.Result.GetComponent<Character>();
 
-            player.SetupAccesory(PlayerData.instance.usedAccessory);
-
             characterController.character = player;
             characterController.trackManager = this;
 
@@ -215,10 +210,7 @@ public class TrackManager : MonoBehaviour
             player.transform.SetParent(characterController.characterCollider.transform, false);
             Camera.main.transform.SetParent(characterController.transform, true);
 
-            if (m_IsTutorial)
-                m_CurrentThemeData = tutorialThemeData;
-            else
-                m_CurrentThemeData = ThemeDatabase.GetThemeData(PlayerData.instance.themes[PlayerData.instance.usedTheme]);
+            m_CurrentThemeData = ThemeDatabase.GetThemeData(PlayerData.instance.themes[PlayerData.instance.usedTheme]);
 
             m_CurrentZone = 0;
             m_CurrentZoneDistance = 0;
@@ -235,11 +227,9 @@ public class TrackManager : MonoBehaviour
             m_Score = 0;
             m_ScoreAccum = 0;
 
-            m_SafeSegementLeft = m_IsTutorial ? 0 : k_StartingSafeSegments;
+            m_SafeSegementLeft = k_StartingSafeSegments;
 
             Coin.coinPool = new Pooler(currentTheme.collectiblePrefab, k_StartingCoinPoolSize);
-
-            PlayerData.instance.StartRunMissions(this);
 
 #if UNITY_ANALYTICS
             AnalyticsEvent.GameStart(new Dictionary<string, object>
@@ -302,7 +292,7 @@ public class TrackManager : MonoBehaviour
     private int _spawnedSegments = 0;
     void Update()
     {
-        while (_spawnedSegments < (m_IsTutorial ? 4 : k_DesiredSegmentCount))
+        while (_spawnedSegments < k_DesiredSegmentCount)
         {
             StartCoroutine(SpawnNewSegment());
             _spawnedSegments++;
@@ -433,13 +423,10 @@ public class TrackManager : MonoBehaviour
 
         PowerupSpawnUpdate();
 
-        if (!m_IsTutorial)
-        {
-            if (m_Speed < maxSpeed)
-                m_Speed += k_Acceleration * Time.deltaTime;
-            else
-                m_Speed = maxSpeed;
-        }
+        if (m_Speed < maxSpeed)
+            m_Speed += k_Acceleration * Time.deltaTime;
+        else
+            m_Speed = maxSpeed;
 
         m_Multiplier = 1 + Mathf.FloorToInt((m_Speed - minSpeed) / (maxSpeed - minSpeed) * speedStep);
 
@@ -449,23 +436,6 @@ public class TrackManager : MonoBehaviour
             {
                 m_Multiplier = part(m_Multiplier);
             }
-        }
-
-        if (!m_IsTutorial)
-        {
-            //check for next rank achieved
-            int currentTarget = (PlayerData.instance.rank + 1) * 300;
-            if (m_TotalWorldDistance > currentTarget)
-            {
-                PlayerData.instance.rank += 1;
-                PlayerData.instance.Save();
-#if UNITY_ANALYTICS
-//"level" in our game are milestone the player have to reach : one every 300m
-            AnalyticsEvent.LevelUp(PlayerData.instance.rank);
-#endif
-            }
-
-            PlayerData.instance.UpdateMissions(this);
         }
 
         MusicPlayer.instance.UpdateVolumes(speedRatio);
@@ -489,11 +459,8 @@ public class TrackManager : MonoBehaviour
     private readonly Vector3 _offScreenSpawnPos = new Vector3(-100f, -100f, -100f);
     public IEnumerator SpawnNewSegment()
     {
-        if (!m_IsTutorial)
-        {
-            if (m_CurrentThemeData.zones[m_CurrentZone].length < m_CurrentZoneDistance)
-                ChangeZone();
-        }
+        if (m_CurrentThemeData.zones[m_CurrentZone].length < m_CurrentZoneDistance)
+            ChangeZone();
 
         int segmentUse = Random.Range(0, m_CurrentThemeData.zones[m_CurrentZone].prefabList.Length);
         if (segmentUse == m_PreviousSegment) segmentUse = (segmentUse + 1) % m_CurrentThemeData.zones[m_CurrentZone].prefabList.Length;
@@ -575,8 +542,7 @@ public class TrackManager : MonoBehaviour
 
     public IEnumerator SpawnCoinAndPowerup(TrackSegment segment)
     {
-        if (!m_IsTutorial)
-        {
+
             const float increment = 1.5f;
             float currentWorldPos = 0.0f;
             int currentLane = Random.Range(0, 3);
@@ -666,7 +632,6 @@ public class TrackManager : MonoBehaviour
 
                 currentWorldPos += increment;
             }
-        }
     }
 
     public void AddScore(int amount)

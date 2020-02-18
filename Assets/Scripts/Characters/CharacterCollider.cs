@@ -142,14 +142,7 @@ public class CharacterCollider : MonoBehaviour
 			    Addressables.ReleaseInstance(c.gameObject);
 			}
 
-            if (TrackManager.instance.isTutorial)
-            {
-                m_TutorialHitObstacle = true;
-            }
-            else
-            {
-                controller.currentLife -= 1;
-            }
+            controller.currentLife -= 1;
 
             controller.character.animator.SetTrigger(s_HitHash);
 

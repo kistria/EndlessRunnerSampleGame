@@ -12,14 +12,11 @@ public class GameOverState : AState
 {
     public TrackManager trackManager;
     public Canvas canvas;
-    public MissionUI missionPopup;
 
 	public AudioClip gameOverTheme;
 
 	public Leaderboard miniLeaderboard;
 	public Leaderboard fullLeaderboard;
-
-    public GameObject addButton;
 
     public override void Enter(AState from)
     {
@@ -29,11 +26,6 @@ public class GameOverState : AState
 		
 		miniLeaderboard.playerEntry.score.text = trackManager.score.ToString();
 		miniLeaderboard.Populate();
-
-        if (PlayerData.instance.AnyMissionComplete())
-            StartCoroutine(missionPopup.Open());
-        else
-            missionPopup.gameObject.SetActive(false);
 
 		CreditCoins();
 
