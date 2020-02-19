@@ -120,20 +120,20 @@ public class CharacterInputController : MonoBehaviour, InputActions.IPlayerActio
     }
 
     public void OnLeft(InputAction.CallbackContext context) {
-		if(context.performed)
+		if(GameManager.instance.ActionOf(context) && context.performed)
 			ChangeLane(-1);
 	}
     public void OnRight(InputAction.CallbackContext context) {
-        if(context.performed)
+        if(GameManager.instance.ActionOf(context) && context.performed)
 			ChangeLane(1);
 
 	}
     public void OnJump(InputAction.CallbackContext context) {
-		if(context.performed)
+		if(GameManager.instance.ActionOf(context) && context.performed)
 			Jump();
 	}
     public void OnSlide(InputAction.CallbackContext context) {
-		if(context.performed)
+		if(GameManager.instance.ActionOf(context) && context.performed)
 			if(!m_Sliding)
 				Slide();
 	}

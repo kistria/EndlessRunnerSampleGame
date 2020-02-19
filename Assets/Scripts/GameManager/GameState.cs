@@ -28,7 +28,6 @@ public class GameState : AState
     public RectTransform powerupZone;
 	public RectTransform lifeRectTransform;
 
-	public RectTransform pauseMenu;
 	public RectTransform wholeUI;
 	public Button pauseButton;
 
@@ -90,7 +89,6 @@ public class GameState : AState
     public void StartGame()
     {
         canvas.gameObject.SetActive(true);
-        pauseMenu.gameObject.SetActive(false);
         wholeUI.gameObject.SetActive(true);
         pauseButton.gameObject.SetActive(true);
 
@@ -188,46 +186,6 @@ public class GameState : AState
             currentModifier.OnRunTick(this);
         }
     }
-
-	void OnApplicationPause(bool pauseStatus)
-	{
-		if (pauseStatus) Pause();
-	}
-
-    void OnApplicationFocus(bool focusStatus)
-    {
-        if (!focusStatus) Pause();
-    }
-
-    public void Pause(bool displayMenu = true)
-	{
-		//check if we aren't finished OR if we aren't already in pause (as that would mess states)
-		if (m_Finished || AudioListener.pause == true)
-			return;
-
-		AudioListener.pause = true;
-		Time.timeScale = 0;
-
-		pauseButton.gameObject.SetActive(false);
-        pauseMenu.gameObject.SetActive (displayMenu);
-		wholeUI.gameObject.SetActive(false);
-		m_WasMoving = trackManager.isMoving;
-		trackManager.StopMove();
-	}
-
-	public void Resume()
-	{
-		Time.timeScale = 1.0f;
-		pauseButton.gameObject.SetActive(true);
-		pauseMenu.gameObject.SetActive (false);
-		wholeUI.gameObject.SetActive(true);
-		if (m_WasMoving)
-		{
-			trackManager.StartMove(false);
-		}
-
-		AudioListener.pause = false;
-	}
 
 	public void QuitToLoadout()
 	{

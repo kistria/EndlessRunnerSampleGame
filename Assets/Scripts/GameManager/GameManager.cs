@@ -3,6 +3,7 @@ using System.Collections.Generic;
 #if UNITY_ANALYTICS
 using UnityEngine.Analytics;
 #endif
+using UnityEngine.InputSystem;
 
 /// <summary>
 /// The Game manager is a state machine, that will switch between state according to current gamestate.
@@ -11,10 +12,16 @@ public class GameManager : MonoBehaviour
 {
     static public GameManager instance { get { return s_Instance; } }
     static protected GameManager s_Instance;
-
+    
     public AState[] states;
     public AState topState {  get { if (m_StateStack.Count == 0) return null; return m_StateStack[m_StateStack.Count - 1]; } }
 
+    public int PlayerIndex;
+
+    public bool ActionOf(InputAction.CallbackContext context) {
+        return PlayerIndex < Gamepad.all.Count && Gamepad.all[PlayerIndex].id == context.control.device.id;
+    }
+    
     public ConsumableDatabase m_ConsumableDatabase;
 
     protected List<AState> m_StateStack = new List<AState>();
