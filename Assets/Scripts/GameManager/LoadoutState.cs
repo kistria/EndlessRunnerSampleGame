@@ -14,7 +14,7 @@ using UnityEngine.Analytics;
 /// State pushed on the GameManager during the Loadout, when player select player, theme and accessories
 /// Take care of init the UI, load all the data used for it etc.
 /// </summary>
-public class LoadoutState : AState
+public class LoadoutState : AState, InputActions.IUIActions
 {
     public Canvas inventoryCanvas;
 
@@ -162,9 +162,27 @@ public class LoadoutState : AState
         }
 	}
 
-    public void StartGameCtx(InputAction.CallbackContext ctx) {
-        if(ctx.performed)
-            manager.SwitchState("Game");
+    InputActions controls;
+
+    public void OnEnable()
+    {
+        if (controls == null)
+        {
+            controls = new InputActions();
+            controls.UI.SetCallbacks(this);
+        }
+        controls.UI.Enable();
+    }
+
+    public void OnDisable()
+    {
+        controls.UI.Disable();
+    }
+
+    public void OnStart(InputAction.CallbackContext context) {
+        if(context.performed) {
+            StartGame();
+        }
     }
 
     public void StartGame()
