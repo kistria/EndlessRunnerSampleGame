@@ -180,7 +180,7 @@ public class LoadoutState : AState, InputActions.IUIActions
     }
 
     public void OnStart(InputAction.CallbackContext context) {
-        if(manager.ActionOf(context) && context.performed) {
+        if(manager.ActionOf(context) && context.started) {
             StartGame();
         }
     }

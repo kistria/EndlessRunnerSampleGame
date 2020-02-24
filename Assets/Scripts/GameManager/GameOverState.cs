@@ -19,6 +19,7 @@ public class GameOverState : AState, InputActions.IGameOverActions
 
 	public Leaderboard miniLeaderboard;
 	public Leaderboard fullLeaderboard;
+	public OnScreenKeyboard.OnScreenKeyboard onScreenKeyboard;
 
     private EventSystem eventSystem;
     public override void Enter(AState from)
@@ -28,7 +29,7 @@ public class GameOverState : AState, InputActions.IGameOverActions
         canvas.gameObject.SetActive(true);
 
         StartCoroutine(FocusPlayerInput());
-		miniLeaderboard.playerEntry.inputName.text = PlayerData.instance.previousName;
+		miniLeaderboard.playerEntry.inputName.text = "";
 		
 		miniLeaderboard.playerEntry.score.text = trackManager.score.ToString();
 		miniLeaderboard.Populate();
@@ -177,33 +178,56 @@ public class GameOverState : AState, InputActions.IGameOverActions
         controls.GameOver.Disable();
     }
 
-    public void OnDelete(InputAction.CallbackContext context) { }
-    public void OnSpace(InputAction.CallbackContext context) { }
-    public void OnShift(InputAction.CallbackContext context) { }
-    public void OnSubmit(InputAction.CallbackContext context) { }
+    public void OnDelete(InputAction.CallbackContext context) {
+        if(manager.ActionOf(context) && context.performed) {
+            onScreenKeyboard.OnDelete();
+         }
+     }
+    public void OnSpace(InputAction.CallbackContext context) {
+        if(manager.ActionOf(context) && context.performed) { 
+            onScreenKeyboard.OnKeyPressed(" ");
+        }
+     }
+    public void OnShift(InputAction.CallbackContext context) {
+        if(manager.ActionOf(context) && context.started) { 
+            onScreenKeyboard.OnShift(true);
+        }
+        if(manager.ActionOf(context) && context.canceled) { 
+            onScreenKeyboard.OnShift(false);
+        }
+     }
+    public void OnSubmit(InputAction.CallbackContext context) {
+        if(manager.ActionOf(context) && context.performed) {
+            onScreenKeyboard.OnSubmit();
+         }
+     }
 
-    public void OnNavigate(InputAction.CallbackContext context) { 
-        if(/*manager.ActionOf(context) && */ context.started) {
+    public void OnUp(InputAction.CallbackContext context) { 
+        Move(context, MoveDirection.Up);
+    }
+    public void OnDown(InputAction.CallbackContext context) { 
+        Move(context, MoveDirection.Down);
+    }
+    public void OnLeft(InputAction.CallbackContext context) { 
+        Move(context, MoveDirection.Left);
+    }
+    public void OnRight(InputAction.CallbackContext context) {
+        Move(context, MoveDirection.Right);
+     }
+     public void OnAdd(InputAction.CallbackContext context) {
+        if(manager.ActionOf(context) && context.performed && !Application.isFocused) { 
+            ExecuteEvents.Execute(EventSystem.current.currentSelectedGameObject, new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
+       }
+     }
 
+     private void Move(InputAction.CallbackContext context, MoveDirection direction) {
+        if(manager.ActionOf(context) && context.performed && !Application.isFocused) {
             var currentAxis = new AxisEventData(EventSystem.current);
             var currentButton = EventSystem.current.currentSelectedGameObject;
-
-            Vector2 move = context.ReadValue<Vector2>();
-            if(move.y > 0)  {
-                currentAxis.moveDir = MoveDirection.Up;
-                ExecuteEvents.Execute(currentButton, currentAxis, ExecuteEvents.moveHandler);
-            } else if(move.y < 0) {
-                currentAxis.moveDir = MoveDirection.Down;
-                ExecuteEvents.Execute(currentButton, currentAxis, ExecuteEvents.moveHandler);
-            } else if(move.x > 0) {
-                currentAxis.moveDir = MoveDirection.Right;
-                ExecuteEvents.Execute(currentButton, currentAxis, ExecuteEvents.moveHandler);
-            } else if(move.x < 0) {
-                currentAxis.moveDir = MoveDirection.Left;
-                ExecuteEvents.Execute(currentButton, currentAxis, ExecuteEvents.moveHandler);
-            }
-        } 
-    }
+            currentAxis.moveDir = direction;
+            ExecuteEvents.Execute(currentButton, currentAxis, ExecuteEvents.moveHandler);
+        }
+     }
 
     //----------------
 }
