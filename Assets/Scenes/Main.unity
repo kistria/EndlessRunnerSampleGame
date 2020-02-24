@@ -10078,7 +10078,7 @@ MonoBehaviour:
   - {fileID: 869760749}
   - {fileID: 1245236425}
   - {fileID: 455205752}
-  PlayerIndex: 1
+  PlayerIndex: 0
   m_ConsumableDatabase: {fileID: 11400000, guid: 5d316f81231c9964dadda0b50ca7ae6b,
     type: 2}
 --- !u!4 &1565788661

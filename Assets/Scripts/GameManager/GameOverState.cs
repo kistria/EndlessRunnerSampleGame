@@ -4,11 +4,13 @@ using UnityEngine.UI;
 using UnityEngine.Analytics;
 #endif
 using System.Collections.Generic;
- 
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
+
 /// <summary>
 /// state pushed on top of the GameManager when the player dies.
 /// </summary>
-public class GameOverState : AState
+public class GameOverState : AState, InputActions.IGameOverActions
 {
     public TrackManager trackManager;
     public Canvas canvas;
@@ -18,10 +20,14 @@ public class GameOverState : AState
 	public Leaderboard miniLeaderboard;
 	public Leaderboard fullLeaderboard;
 
+    private EventSystem eventSystem;
     public override void Enter(AState from)
     {
+        if(eventSystem == null) eventSystem = EventSystem.current;
+
         canvas.gameObject.SetActive(true);
 
+        StartCoroutine(FocusPlayerInput());
 		miniLeaderboard.playerEntry.inputName.text = PlayerData.instance.previousName;
 		
 		miniLeaderboard.playerEntry.score.text = trackManager.score.ToString();
@@ -34,6 +40,14 @@ public class GameOverState : AState
             MusicPlayer.instance.SetStem(0, gameOverTheme);
 			StartCoroutine(MusicPlayer.instance.RestartAllStems());
         }
+    }
+
+    IEnumerator<UnityEngine.WaitForEndOfFrame> FocusPlayerInput() {
+        Debug.Log("FocusPlayerInput");
+        eventSystem.SetSelectedGameObject(null);
+ 		yield return new WaitForEndOfFrame();
+		eventSystem.SetSelectedGameObject(miniLeaderboard.playerEntry.inputName.gameObject);
+		yield return new WaitForEndOfFrame();
     }
 
 	public override void Exit(AState to)
@@ -144,6 +158,51 @@ public class GameOverState : AState
         PlayerData.instance.Save();
 
         trackManager.End();
+    }
+
+    InputActions controls;
+
+    public void OnEnable()
+    {
+        if (controls == null)
+        {
+            controls = new InputActions();
+            controls.GameOver.SetCallbacks(this);
+        }
+        controls.GameOver.Enable();
+    }
+
+    public void OnDisable()
+    {
+        controls.GameOver.Disable();
+    }
+
+    public void OnDelete(InputAction.CallbackContext context) { }
+    public void OnSpace(InputAction.CallbackContext context) { }
+    public void OnShift(InputAction.CallbackContext context) { }
+    public void OnSubmit(InputAction.CallbackContext context) { }
+
+    public void OnNavigate(InputAction.CallbackContext context) { 
+        if(/*manager.ActionOf(context) && */ context.started) {
+
+            var currentAxis = new AxisEventData(EventSystem.current);
+            var currentButton = EventSystem.current.currentSelectedGameObject;
+
+            Vector2 move = context.ReadValue<Vector2>();
+            if(move.y > 0)  {
+                currentAxis.moveDir = MoveDirection.Up;
+                ExecuteEvents.Execute(currentButton, currentAxis, ExecuteEvents.moveHandler);
+            } else if(move.y < 0) {
+                currentAxis.moveDir = MoveDirection.Down;
+                ExecuteEvents.Execute(currentButton, currentAxis, ExecuteEvents.moveHandler);
+            } else if(move.x > 0) {
+                currentAxis.moveDir = MoveDirection.Right;
+                ExecuteEvents.Execute(currentButton, currentAxis, ExecuteEvents.moveHandler);
+            } else if(move.x < 0) {
+                currentAxis.moveDir = MoveDirection.Left;
+                ExecuteEvents.Execute(currentButton, currentAxis, ExecuteEvents.moveHandler);
+            }
+        } 
     }
 
     //----------------
