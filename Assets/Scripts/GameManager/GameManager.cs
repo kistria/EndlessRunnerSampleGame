@@ -16,10 +16,11 @@ public class GameManager : MonoBehaviour
     public AState[] states;
     public AState topState {  get { if (m_StateStack.Count == 0) return null; return m_StateStack[m_StateStack.Count - 1]; } }
 
+    public bool IsDev;
     public int PlayerIndex;
 
     public bool ActionOf(InputAction.CallbackContext context) {
-        return PlayerIndex < Gamepad.all.Count && Gamepad.all[PlayerIndex].id == context.control.device.id;
+        return IsDev || (PlayerIndex < Gamepad.all.Count && Gamepad.all[PlayerIndex].id == context.control.device.id);
     }
     
     public ConsumableDatabase m_ConsumableDatabase;
